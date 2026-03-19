@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response } from "express";
 
 import { buildKeeperContext, getAllPools, getTargetPools } from "./context.js";
 import { config, hasDecisionAgentConfig, hasExecutionConfig } from "./config.js";
+import { buildBaselineDecision } from "./decision-agent.js";
 import { listDecisions } from "./history.js";
 import { buildDecisionForPool, runKeeper } from "./keeper.js";
 import { buildVolatilitySignal } from "./market.js";
@@ -122,9 +123,24 @@ export function createServer(): Express {
   app.get("/pools", async (_req, res) => {
     try {
       const pools = await getAllPools();
+      const latestDecisions = new Map(
+        listDecisions().map((entry) => [entry.pool.toLowerCase(), entry]),
+      );
       const items = await Promise.all(
         pools.map(async (address) => {
-          const { decision, context } = await buildDecisionForPool(address);
+          const context = await buildKeeperContext(address);
+          const latestDecision = latestDecisions.get(address.toLowerCase());
+          const fallbackDecision = buildBaselineDecision(context);
+          const decision = latestDecision
+            ? {
+                action: latestDecision.action === "unknown" ? fallbackDecision.action : latestDecision.action,
+                source: latestDecision.decisionSource,
+              }
+            : {
+                action: fallbackDecision.action,
+                source: fallbackDecision.source,
+              };
+
           return {
             address,
             state: context.pool.state,

@@ -4,6 +4,10 @@ import { config } from "./config.js";
 import type { HexAddress, MarketSignal, Thresholds, TokenMetadata, VolatilityRegime } from "./types.js";
 import { clamp, hashString, nowSec } from "./utils.js";
 
+const MARKET_SIGNAL_CACHE_TTL_MS = 30_000;
+
+let cachedSaucerSwapSignal: { value: MarketSignal; expiresAt: number } | null = null;
+
 interface SafeReadParams<T> {
   client?: any;
   address: HexAddress;
@@ -195,8 +199,18 @@ async function fetchSaucerSwapVolatilitySignal(): Promise<MarketSignal> {
 }
 
 export async function buildVolatilitySignal(poolAddress: HexAddress): Promise<MarketSignal> {
+  const now = Date.now();
+  if (cachedSaucerSwapSignal && cachedSaucerSwapSignal.expiresAt > now) {
+    return cachedSaucerSwapSignal.value;
+  }
+
   try {
-    return await fetchSaucerSwapVolatilitySignal();
+    const signal = await fetchSaucerSwapVolatilitySignal();
+    cachedSaucerSwapSignal = {
+      value: signal,
+      expiresAt: now + MARKET_SIGNAL_CACHE_TTL_MS,
+    };
+    return signal;
   } catch (_error) {
     return buildMockVolatilitySignal(poolAddress);
   }
