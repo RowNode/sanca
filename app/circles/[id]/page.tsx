@@ -11,11 +11,11 @@ import { JoinPoolButton } from "@/components/circles/join-pool-button"
 import { ContributeButton } from "@/components/circles/contribute-button"
 import { WithdrawButton } from "@/components/circles/withdraw-button"
 // import { CycleCountdown } from "@/components/circles/cycle-countdown"
-import { useEffect } from "react"
 import { useWatchContractEvent } from "wagmi"
 import { SancaPoolAbi } from "@/lib/abis"
 import { toast } from "sonner"
 import { CycleCountdown } from "@/components/circles/cycle-countdown"
+import { useKeeperSummaryMap } from "@/hooks/useKeeper"
 
 export default function CircleDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +23,7 @@ export default function CircleDetailPage() {
 
   // Fetch pool detail from the indexed API snapshot
   const { data, isLoading, error, refetch: refetchPoolDetail } = usePoolDetail(poolId);
+  const keeperSummaryMap = useKeeperSummaryMap();
 
   // Watch for WinnerSelected event untuk auto-refresh setelah winner selected
   useWatchContractEvent({
@@ -111,19 +112,21 @@ export default function CircleDetailPage() {
     return completedCycles > 0 ? completedCycles : data.pool.currentCycle;
   };
 
-  // Helper untuk calculate total fund (contribution * maxMembers)
-  const getTotalFund = () => {
-    if (!data?.pool) return "0";
-    const contribution = toBigInt(data.pool.contributionPerPeriod);
-    const total = contribution * BigInt(data.pool.maxMembers);
-    return formatUSDC(total);
-  };
-
   // Helper untuk format period duration (always in days)
   const formatPeriodDuration = (seconds: bigint | string | number) => {
     const bigIntSeconds = toBigInt(seconds);
     const days = Math.round(Number(bigIntSeconds) / 86400);
     return `${days} ${days === 1 ? "day" : "days"}`;
+  };
+
+  const formatPercent = (value?: number) => {
+    if (value === undefined || Number.isNaN(value)) return "--";
+    return `${value.toFixed(2)}%`;
+  };
+
+  const formatUsdValue = (value?: number) => {
+    if (value === undefined || Number.isNaN(value)) return "--";
+    return `$${value.toFixed(2)}`;
   };
 
   if (isLoading) {
@@ -157,8 +160,8 @@ export default function CircleDetailPage() {
   }
 
   const pool = data.pool;
+  const keeperSummary = keeperSummaryMap.data?.get(pool.id.toLowerCase());
   const progress = getProgress();
-  const totalFund = getTotalFund();
   const createdDate = new Date(Number(toBigInt(pool.createdAtTimestamp)) * 1000);
   const isFull = data.members.length >= pool.maxMembers;
 
@@ -214,7 +217,7 @@ export default function CircleDetailPage() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-border">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 pt-6 border-t border-border">
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Max Members</p>
               <p className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -240,10 +243,22 @@ export default function CircleDetailPage() {
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Total Fund</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">30D APY</p>
               <p className="text-2xl font-bold text-accent font-mono flex items-center gap-2">
                 <TrendingUp className="w-5 h-5" />
-                ${totalFund}
+                {formatPercent(keeperSummary?.apy30d)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {keeperSummary ? "Intelligent keeper yield signal" : "Keeper analytics unavailable"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Vault TVL</p>
+              <p className="text-2xl font-bold text-accent font-mono">
+                {formatUsdValue(keeperSummary?.vaultTvlUsd)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {keeperSummary ? "Bonzo-style vault capital managed" : "Start keeper service to surface TVL"}
               </p>
             </div>
             <div>

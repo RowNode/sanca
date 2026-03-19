@@ -111,8 +111,8 @@ The project maps cleanly to common evaluation dimensions:
 - `Innovation`: community finance + DeFi vaults + intelligent keeper
 - `Feasibility`: clear contract/service architecture already implemented
 - `Execution`: end-to-end MVP across contracts, services, APIs, and UI
-- `Integration`: deep use of Hedera EVM, Mirror Node, RPC, PRNG-style flow, and ecosystem tooling
-- `Success`: accessible savings UX with visible yield and automation
+- `Integration`: deep use of Hedera EVM, Mirror Node, Hashio RPC, Hedera PRNG, HIP-719-style flows, and ecosystem tooling
+- `Success`: recurring savings activity, visible yield, automated settlement, and clear paths to repeat on-chain usage
 - `Clarity`: simple, memorable, and easy to demonstrate
 
 ## Core Features
@@ -222,6 +222,8 @@ Sanca answers that with:
 
 The implementation deliberately focuses only on the `Volatility-Aware Rebalancer` concept, which keeps the project coherent and technically believable.
 
+The keeper architecture also initializes `Hedera Agent Kit` with a Hedera operator client, while keeping the reasoning loop narrow and the execution path deterministic. This makes the system more credible for a DeFi keeper use case than a broad, over-claimed autonomous agent.
+
 ## User Flow
 
 Sanca operates through a simple end-to-end flow:
@@ -262,7 +264,7 @@ This flow combines community finance, DeFi yield infrastructure, and intelligent
 - `Express`
 - `TypeScript`
 - `Groq`
-- `Hedera Agent Kit runtime concepts`
+- `Hedera Agent Kit`-initialized keeper runtime
 
 ### Ecosystem alignment
 
@@ -297,10 +299,41 @@ This flow combines community finance, DeFi yield infrastructure, and intelligent
 
 ### Hedera integration
 
-- contracts deployed on Hedera testnet
-- Mirror Node used for historical data
-- RPC used for live reads and writes
-- ecosystem integration story is explicit, not bolted on
+- contracts, frontend, keeper, settler, and indexing flows are wired to `Hedera Testnet` (`chainId 296`)
+- `Hedera Mirror Node` REST is used for historical contract logs, event indexing, and pool snapshots
+- `Hashio RPC` is used for live reads and writes across the app, keeper, settler, Foundry scripts, and Ponder
+- the keeper runtime initializes `Hedera Agent Kit` with a Hedera operator client as part of the intelligent keeper architecture
+- `SancaPool` uses Hedera `PRNG` via system contract `0x169` to shuffle winner order for payout scheduling
+- the contracts use Hedera `HIP-719`-style token association via `associate()` for pool and vault token setup
+- the product surfaces verifiable Hedera activity through `HashScan` links for wallet and keeper transactions
+
+## Why It Can Succeed On Hedera
+
+Sanca is designed around recurring on-chain coordination, not one-off speculative interactions.
+
+- each new pool creates a new on-chain coordination surface for a real savings group
+- each member adds repeatable join, contribution, and payout activity across cycles
+- automated settlement and keeper actions create visible protocol operations beyond simple deposits
+- Hedera's low-fee, high-throughput environment is well-suited for cycle-based recurring transactions
+- the product is understandable to mainstream users because the entry point is community savings, not only vault strategy optimization
+
+This gives Sanca a plausible path to sustained on-chain activity if adopted by real communities, contributor groups, cooperatives, and digitally coordinated savings clubs.
+
+## Validation Thesis
+
+The current MVP is positioned for user groups that already coordinate money socially but lack transparent infrastructure:
+
+- community savings groups and rotating savings clubs
+- crypto-native groups that want structured treasury coordination
+- campus, local, or diaspora communities that already use informal contribution rotations
+- small online communities that want transparent payout order and contribution tracking
+
+The immediate validation path is straightforward:
+
+- test the full create, join, contribute, and payout flow with small user groups
+- observe where social coordination still creates friction
+- measure whether visible yield and automated settlement make participation more compelling than manual ROSCAs
+- use keeper history and HashScan-linked execution as trust-building product features during user feedback cycles
 
 ## Hedera Testnet Deployment
 
