@@ -1,0 +1,295 @@
+# --- Verifikasi kontrak (HashScan, chain 296) ---
+# Jalankan dari folder contracts/
+
+
+# MockBonzoVault 
+curl -X POST https://server-verify.hashscan.io/verify \
+  -F "address=0x5886EBcBfB04d417cFb9e5711979140e44C28B11" \
+  -F "chain=296" \
+  -F "files=@out/MockBonzoVault.sol/MockBonzoVault.json" \
+  -F "files=@src/MockBonzoVault.sol" \
+  -F "files=@src/interfaces/IBonzoVault.sol" \
+  -F "files=@src/interfaces/IDepositGuard.sol"
+
+# MockDepositGuard
+curl -X POST https://server-verify.hashscan.io/verify \
+  -F "address=0xB9AfFf6F6f146DeBe0768e8082524A4600fDC1B9" \
+  -F "chain=296" \
+  -F "files=@out/MockDepositGuard.sol/MockDepositGuard.json" \
+  -F "files=@src/MockDepositGuard.sol" \
+  -F "files=@src/interfaces/IBonzoVault.sol" \
+  -F "files=@src/interfaces/IDepositGuard.sol"
+
+# SancaFactory (deploy sekali) - latest deploy
+curl -X POST https://server-verify.hashscan.io/verify \
+  -F "address=0x08a74CB8D0B398d9d6add0992085E488321Ef686" \
+  -F "chain=296" \
+  -F "files=@out/SancaFactory.sol/SancaFactory.json" \
+  -F "files=@src/SancaFactory.sol" \
+  -F "files=@src/SancaPool.sol" \
+  -F "files=@src/interfaces/IBonzoVault.sol" \
+  -F "files=@src/interfaces/IDepositGuard.sol"
+
+# SancaPool implementation (deploy sekali). Pool = EIP-1167 clone → logic ada di sini.
+# Setelah ini verified, HashScan bisa deteksi proxy dan tampilkan pool sebagai "Proxy → impl".
+curl -X POST https://server-verify.hashscan.io/verify \
+  -F "address=0xE521D3c0D2610c7c753aD7a12e45A9AF627Ac83C" \
+  -F "chain=296" \
+  -F "files=@out/SancaPool.sol/SancaPool.json" \
+  -F "files=@src/SancaFactory.sol" \
+  -F "files=@src/SancaPool.sol" \
+  -F "files=@src/interfaces/IBonzoVault.sol" \
+  -F "files=@src/interfaces/IDepositGuard.sol"
+
+# CA address (latest deploy)
+  USDC: 0x0000000000000000000000000000000000001549
+  Bonzo Vault: 0x5886EBcBfB04d417cFb9e5711979140e44C28B11
+  Deposit Guard: 0xB9AfFf6F6f146DeBe0768e8082524A4600fDC1B9
+  SancaPool Implementation: 0xE521D3c0D2610c7c753aD7a12e45A9AF627Ac83C
+  SancaFactory: 0x08a74CB8D0B398d9d6add0992085E488321Ef686
+  Keeper (optional): 0xC3BF4C8B5A9bb1E68E9E5B26167c76a311DCe488
+
+# Kenapa alamat pool (e.g. 0xBedf57...) "unverified" dan event gak keliatan nama?
+# Pool = minimal proxy (EIP-1167): bytecode cuma delegasi ke implementation, bukan full SancaPool.
+# HashScan nempel ABI ke alamat kontrak; alamat pool isinya bytecode proxy, jadi gak ada ABI →
+# event cuma tampil Topic0, Topic1, ... (nama event & param tidak ter-decode).
+# Fix di explorer: belum ada "proxy → pakai ABI implementation" di HashScan. Workaround:
+# - Decode manual: pakai ABI implementation (SancaPool). Contoh event: Joined(address indexed member, uint256 contribution).
+# - cast logs dengan signature event + filter address pool (decode pakai sig):
+#   cast logs "Joined(address,uint256)" --address $POOL --from-block BLOCK --to-block BLOCK --rpc-url testnet
+# - Di frontend/sdk: saat baca tx/log untuk alamat pool, pakai ABI out/SancaPool.sol/SancaPool.json.
+
+# --- Create pool via cast (Hedera testnet) ---
+# createPool(maxMembers, contributionPerPeriod, periodDuration, yieldBonusSplit, poolName, poolDescription)
+# contributionPerPeriod: USDC 6 decimals (10000000 = 10 USDC)
+# periodDuration: seconds (604800 = 7 days)
+# yieldBonusSplit: 0-100 (50 = 50% yield to winner)
+cast send 0x08a74CB8D0B398d9d6add0992085E488321Ef686 \
+  "createPool(uint8,uint256,uint256,uint8,string,string)" \
+  5 10000000 604800 50 "Sanca Test" "Test pool Hedera testnet" \
+  --rpc-url testnet --private-key $PRIVATE_KEY
+
+# Cek jumlah pool & alamat pool terakhir (index = count - 1)
+cast call 0x08a74CB8D0B398d9d6add0992085E488321Ef686 "getPoolCount()" --rpc-url testnet
+cast call 0x08a74CB8D0B398d9d6add0992085E488321Ef686 "getPool(uint256)(address)" 0 --rpc-url testnet
+
+# --- Deposit collateral (join pool) ---
+# Pool dari createPool di atas (index 0): 0xBedf5731350C5E1a9D3b230c48050Aa900B199d3
+# Full collateral = contributionPerPeriod * maxMembers = 10e6 * 5 = 50 USDC = 50000000
+USDC=0x0000000000000000000000000000000000001549
+POOL=0xBedf5731350C5E1a9D3b230c48050Aa900B199d3
+# 1) Approve USDC ke pool (50 USDC)
+cast send $USDC "approve(address,uint256)" $POOL 50000000 --rpc-url testnet --private-key $PRIVATE_KEY
+# 2) Join pool (deposit collateral)
+cast send $POOL "join()" --rpc-url testnet --private-key $PRIVATE_KEY
+
+# ========== FULL INTERAKSI: SancaFactory + SancaPool ==========
+# Set variabel (testnet chain 296)
+FACTORY=0x08a74CB8D0B398d9d6add0992085E488321Ef686
+USDC=0x0000000000000000000000000000000000001549
+POOL=0xBedf5731350C5E1a9D3b230c48050Aa900B199d3   # ganti dengan getPool(index) bila beda pool
+
+# --- SancaFactory (read) ---
+cast call $FACTORY "getPoolCount()(uint256)" --rpc-url testnet
+cast call $FACTORY "getPool(uint256)(address)" 0 --rpc-url testnet
+cast call $FACTORY "getAllPools()(address[])" --rpc-url testnet
+cast call $FACTORY "poolImplementation()(address)" --rpc-url testnet
+cast call $FACTORY "usdc()(address)" --rpc-url testnet
+cast call $FACTORY "bonzoVault()(address)" --rpc-url testnet
+cast call $FACTORY "depositGuard()(address)" --rpc-url testnet
+cast call $FACTORY "owner()(address)" --rpc-url testnet
+
+# --- SancaFactory (write, owner only) ---
+# cast send $FACTORY "setUSDC(address)" 0x... --rpc-url testnet --private-key $PRIVATE_KEY
+# cast send $FACTORY "setBonzoVault(address)" 0x... --rpc-url testnet --private-key $PRIVATE_KEY
+# cast send $FACTORY "setDepositGuard(address)" 0x... --rpc-url testnet --private-key $PRIVATE_KEY
+
+# --- SancaFactory: create pool ---
+cast send $FACTORY "createPool(uint8,uint256,uint256,uint8,string,string)" \
+  5 10000000 604800 50 "My Pool" "Description" \
+  --rpc-url testnet --private-key $PRIVATE_KEY
+
+# --- SancaPool (read) ---
+# state: 0=Open, 1=Active, 2=Completed
+cast call $POOL "getPoolInfo()(uint8,uint8,uint256,uint256,uint256,uint8,uint256,uint256,uint256,uint256,uint256)" --rpc-url testnet
+cast call $POOL "state()(uint8)" --rpc-url testnet
+cast call $POOL "maxMembers()(uint8)" --rpc-url testnet
+cast call $POOL "contributionPerPeriod()(uint256)" --rpc-url testnet
+cast call $POOL "periodDuration()(uint256)" --rpc-url testnet
+cast call $POOL "currentCycle()(uint256)" --rpc-url testnet
+cast call $POOL "cycleStartTime()(uint256)" --rpc-url testnet
+cast call $POOL "getMembers()(address[])" --rpc-url testnet
+cast call $POOL "getCycleWinner(uint256)(address)" 0 --rpc-url testnet
+cast call $POOL "isCycleCompleted(uint256)(bool)" 0 --rpc-url testnet
+cast call $POOL "isMember(address)(bool)" 0x6C32653699861C805ab41caE464021eA6e6626e4 --rpc-url testnet
+cast call $POOL "memberCollateral(address)(uint256)" 0x6C32653699861C805ab41caE464021eA6e6626e4 --rpc-url testnet
+cast call $POOL "members(uint256)(address)" 0 --rpc-url testnet
+cast call $POOL "owner()(address)" --rpc-url testnet
+cast call $POOL "usdc()(address)" --rpc-url testnet
+cast call $POOL "bonzoVault()(address)" --rpc-url testnet
+cast call $POOL "depositGuard()(address)" --rpc-url testnet
+
+# --- SancaPool: join (deposit collateral) ---
+# fullCollateral = contributionPerPeriod * maxMembers (e.g. 10e6 * 5 = 50000000)
+cast send $USDC "approve(address,uint256)" $POOL 50000000 --rpc-url testnet --private-key $PRIVATE_KEY
+cast send $POOL "join()" --rpc-url testnet --private-key $PRIVATE_KEY
+
+# --- SancaPool: contribute (per cycle, pool harus Active) ---
+# Transfer contributionPerPeriod USDC (e.g. 10000000 = 10 USDC)
+cast send $USDC "approve(address,uint256)" $POOL 10000000 --rpc-url testnet --private-key $PRIVATE_KEY
+cast send $POOL "contribute()" --rpc-url testnet --private-key $PRIVATE_KEY
+
+# --- SancaPool: settle cycle (setelah periodDuration habis, siapa saja bisa panggil) ---
+cast send $POOL "settleCycle()" --rpc-url testnet --private-key $PRIVATE_KEY
+
+# --- SancaPool: withdraw (setelah pool Completed, member ambil sisa collateral) ---
+cast send $POOL "withdraw()" --rpc-url testnet --private-key $PRIVATE_KEY
+
+# --- SancaPool: keeper (rebalance / collect fees di vault) ---
+cast send $POOL "keeperRebalance(int24,int24,int24,int24,int256)" -120 120 -360 360 0 --rpc-url testnet --private-key $PRIVATE_KEY
+cast send $POOL "keeperCollectFees()" --rpc-url testnet --private-key $PRIVATE_KEY
+
+# ========== FLOW END-TO-END: 2 ORANG, 5 USDC, 5 MENIT ==========
+# Skenario: 2 member, contributionPerPeriod = 5 USDC, periodDuration = 5 menit, 2 cycle total.
+# Asumsi:
+# - FACTORY & USDC sama seperti di atas (deploy testnet sekarang).
+# - Ada 2 akun: MEMBER1 (PRIVATE_KEY1), MEMBER2 (PRIVATE_KEY2) yang masing-masing punya cukup USDC.
+# - Ada 1 akun SETTLER (PRIVATE_KEY_SETTLER) yang akan memanggil settleCycle (keeper off-chain).
+
+FACTORY=0x08a74CB8D0B398d9d6add0992085E488321Ef686
+USDC=0x0000000000000000000000000000000000001549
+
+# 0) (Opsional) Cek config factory
+cast call $FACTORY "usdc()(address)" --rpc-url testnet
+cast call $FACTORY "bonzoVault()(address)" --rpc-url testnet
+cast call $FACTORY "depositGuard()(address)" --rpc-url testnet
+
+# 1) Create pool: 2 orang, 5 USDC, 5 menit, yieldBonusSplit 50
+# maxMembers = 2
+# contributionPerPeriod = 5e6 (5 USDC dengan 6 desimal)
+# periodDuration = 300 detik (5 menit)
+# yieldBonusSplit = 50 (% yield ke pemenang)
+cast send $FACTORY "createPool(uint8,uint256,uint256,uint8,string,string)" \
+  2 5000000 300 50 "Sanca 2 Orang 5 USDC" "Pool demo 2 orang 5 USDC, 5 menit" \
+  --rpc-url testnet --private-key $PRIVATE_KEY_SETTLER
+
+# 2) Ambil alamat pool baru (index terakhir = count - 1)
+POOL_INDEX=$(cast call $FACTORY "getPoolCount()(uint256)" --rpc-url testnet)
+POOL_INDEX=$((POOL_INDEX-1))
+echo "POOL_INDEX=$POOL_INDEX"
+POOL=$(cast call $FACTORY "getPool(uint256)(address)" $POOL_INDEX --rpc-url testnet)
+echo "POOL=$POOL"
+
+# 3) Kedua member deposit collateral (join)
+# fullCollateral = contributionPerPeriod * maxMembers = 5e6 * 2 = 10e6 (10 USDC)
+
+# 3a) MEMBER1 join
+cast send $USDC "approve(address,uint256)" $POOL 10000000 --rpc-url testnet --private-key $PRIVATE_KEY1
+cast send $POOL "join()" --rpc-url testnet --private-key $PRIVATE_KEY1
+
+# 3b) MEMBER2 join
+cast send $USDC "approve(address,uint256)" $POOL 10000000 --rpc-url testnet --private-key $PRIVATE_KEY2
+cast send $POOL "join()" --rpc-url testnet --private-key $PRIVATE_KEY2
+
+# Cek info pool dan members
+cast call $POOL "getPoolInfo()(uint8,uint8,uint256,uint256,uint256,uint8,uint256,uint256,uint256,uint256,uint256)" --rpc-url testnet
+cast call $POOL "getMembers()(address[])" --rpc-url testnet
+
+# ========== CYCLE 0 ==========
+
+# 4) Kedua member contribute 5 USDC untuk cycle 0
+cast send $USDC "approve(address,uint256)" $POOL 5000000 --rpc-url testnet --private-key $PRIVATE_KEY1
+cast send $POOL "contribute()" --rpc-url testnet --private-key $PRIVATE_KEY1
+
+cast send $USDC "approve(address,uint256)" $POOL 5000000 --rpc-url testnet --private-key $PRIVATE_KEY2
+cast send $POOL "contribute()" --rpc-url testnet --private-key $PRIVATE_KEY2
+
+# 5) Tunggu periodDuration (5 menit) → lalu settle cycle (dipanggil oleh SETTLER)
+#    (secara real: tunggu waktu block di explorer lewat 5 menit dari cycleStartTime)
+cast send $POOL "settleCycle()" --rpc-url testnet --private-key $PRIVATE_KEY_SETTLER
+
+# Cek winner cycle 0
+cast call $POOL "getCycleWinner(uint256)(address)" 0 --rpc-url testnet
+cast call $POOL "isCycleCompleted(uint256)(bool)" 0 --rpc-url testnet
+
+# ========== CYCLE 1 ==========
+
+# 6) Kedua member contribute lagi untuk cycle 1 (5 USDC)
+cast send $USDC "approve(address,uint256)" $POOL 5000000 --rpc-url testnet --private-key $PRIVATE_KEY1
+cast send $POOL "contribute()" --rpc-url testnet --private-key $PRIVATE_KEY1
+
+cast send $USDC "approve(address,uint256)" $POOL 5000000 --rpc-url testnet --private-key $PRIVATE_KEY2
+cast send $POOL "contribute()" --rpc-url testnet --private-key $PRIVATE_KEY2
+
+# 7) Tunggu 5 menit lagi → settle cycle untuk cycle 1 (oleh SETTLER)
+cast send $POOL "settleCycle()" --rpc-url testnet --private-key $PRIVATE_KEY_SETTLER
+
+# Cek winner cycle 1 dan state pool
+cast call $POOL "getCycleWinner(uint256)(address)" 1 --rpc-url testnet
+cast call $POOL "isCycleCompleted(uint256)(bool)" 1 --rpc-url testnet
+cast call $POOL "state()(uint8)" --rpc-url testnet   # seharusnya = 2 (Completed)
+
+# ========== WITHDRAW ==========
+
+# 8) Setelah pool Completed, masing-masing member withdraw sisa collateral/hasil
+cast call $POOL "memberCollateral(address)(uint256)" 0x25eca73e075b27668f4da79a706d62379447641d --rpc-url testnet
+cast call $POOL "memberCollateral(address)(uint256)" 0x5067CBa43c74855b5307cdc16Be2C36113444a47 --rpc-url testnet
+
+cast send $POOL "withdraw()" --rpc-url testnet --private-key $PRIVATE_KEY1
+cast send $POOL "withdraw()" --rpc-url testnet --private-key $PRIVATE_KEY2
+
+# 9) Cek kembali balance & memberCollateral untuk memastikan sudah 0
+cast call $POOL "memberCollateral(address)(uint256)" $MEMBER1 --rpc-url testnet
+cast call $POOL "memberCollateral(address)(uint256)" $MEMBER2 --rpc-url testnet
+
+# ========== SKENARIO 2: 1 MEMBER TELAT BAYAR (LIQUIDATION) ==========
+# Setup awal sama seperti skenario 2 orang di atas, tapi pada cycle 1:
+# - MEMBER1 bayar tepat waktu
+# - MEMBER2 TIDAK contribute → collateral MEMBER2 di-vault akan diliquidate untuk menutup kontribusi
+
+# Asumsi variabel masih:
+# FACTORY, USDC, POOL, MEMBER1/2, PRIVATE_KEY1/2, PRIVATE_KEY_SETTLER
+
+# 1) Pastikan pool baru dalam keadaan Active di cycle 0 (sudah full join)
+#    (lihat skenario di atas sampai selesai cycle 0).
+
+# 2) Untuk cycle 1: hanya MEMBER1 yang contribute, MEMBER2 tidak.
+cast send $USDC "approve(address,uint256)" $POOL 5000000 --rpc-url testnet --private-key $PRIVATE_KEY1
+cast send $POOL "contribute()" --rpc-url testnet --private-key $PRIVATE_KEY1
+
+# 3) Setelah 5 menit, settler settleCycle → kontrak akan:
+#    - Liquidate collateral MEMBER2 dari vault
+#    - Tambahkan ke cycleUSDCBalance
+#    - Tandai MEMBER2 seolah-olah sudah contribute via liquidation
+cast send $POOL "settleCycle()" --rpc-url testnet --private-key $PRIVATE_KEY_SETTLER
+
+# 4) Cek:
+cast call $POOL "getCycleWinner(uint256)(address)" 1 --rpc-url testnet
+cast call $POOL "isCycleCompleted(uint256)(bool)" 1 --rpc-url testnet
+cast call $POOL "memberCollateral(address)(uint256)" $MEMBER2 --rpc-url testnet   # harus berkurang 5e6
+
+
+# Mock Bonzo Vault command
+export RPC_URL=https://testnet.hashio.io/api
+export USDC=0x0000000000000000000000000000000000001549
+export VAULT=0x5886EBcBfB04d417cFb9e5711979140e44C28B11
+
+# pakai private key owner vault
+export PRIVATE_KEY_VAULT_OWNER=0x...
+
+cast send $USDC "approve(address,uint256)" $VAULT 1000000000 \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY_VAULT_OWNER
+
+cast send $VAULT "seedPendingFees(uint256)" 25000000 \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY_VAULT_OWNER
+
+cast send $VAULT "seedPendingFees(uint256)" 25000000 \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY_VAULT_OWNER
+
+1 USDC = 1000000
+10 USDC = 10000000
+25 USDC = 25000000
+50 USDC = 50000000
