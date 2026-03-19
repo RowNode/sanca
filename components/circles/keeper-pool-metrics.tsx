@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface KeeperPoolMetricsProps {
   apy30d?: number;
+  poolState?: "Open" | "Active" | "Completed";
   nextAction?: "rebalance" | "collectFees" | "noop";
   volatilityRegime?: "low" | "medium" | "high" | "extreme";
   decisionSource?: "groq-agent" | "rules-fallback" | "unknown";
@@ -38,6 +39,7 @@ function regimeClasses(regime?: "low" | "medium" | "high" | "extreme"): string {
 
 export function KeeperPoolMetrics({
   apy30d,
+  poolState,
   nextAction,
   volatilityRegime,
   decisionSource,
@@ -73,6 +75,22 @@ export function KeeperPoolMetrics({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {poolState === "Completed" && (
+            <>
+              <Badge
+                variant="outline"
+                className="border-slate-500/30 bg-slate-500/10 text-slate-400"
+              >
+                Completed
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-slate-500/30 bg-slate-500/10 text-slate-400"
+              >
+                Monitoring Off
+              </Badge>
+            </>
+          )}
           <Badge variant="outline" className={regimeClasses(volatilityRegime)}>
             <Waves className="h-3 w-3" />
             {regimeLabel(volatilityRegime)}

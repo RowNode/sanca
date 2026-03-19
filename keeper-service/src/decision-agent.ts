@@ -38,10 +38,14 @@ function buildCenteredRange(
 }
 
 export function buildBaselineDecision(context: KeeperContext): KeeperDecision {
-  if (context.pool.state !== "Active" && context.pool.state !== "Completed") {
+  if (context.pool.state !== "Active") {
     return {
       action: "noop",
-      reasoning: ["Pool is not active, so keeper should not intervene."],
+      reasoning: [
+        context.pool.state === "Completed"
+          ? "Pool is completed, so keeper monitoring and execution are disabled."
+          : "Pool is not active, so keeper should not intervene.",
+      ],
       params: null,
       source: "rules-fallback",
     };

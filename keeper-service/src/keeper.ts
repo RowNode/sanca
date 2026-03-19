@@ -28,8 +28,14 @@ export async function runKeeper(): Promise<KeeperRunSummary> {
     let latestDecision: KeeperDecision | null = null;
 
     try {
-      const { context, decision } = await buildDecisionForPool(pool);
+      const context = await buildKeeperContext(pool);
       latestContext = context;
+
+      if (context.pool.state !== "Active") {
+        continue;
+      }
+
+      const decision = await buildDecisionForContext(context);
       latestDecision = decision;
 
       if (decision.action === "noop") {

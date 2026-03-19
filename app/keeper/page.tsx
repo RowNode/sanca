@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { BrainCircuit, Loader2, Sparkles, Waves } from "lucide-react";
+import { BrainCircuit, ExternalLink, Loader2, Sparkles, Waves } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,10 @@ function formatPercent(value: number): string {
 
 function shortAddress(value: string): string {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function getHashScanTxUrl(txHash: string): string {
+  return `https://hashscan.io/testnet/tx/${txHash}`;
 }
 
 function actionVariant(action: string): "default" | "secondary" | "outline" {
@@ -65,16 +69,16 @@ export default function KeeperPage() {
     const history = historyEntries ?? [];
 
     const totalVaultTvl = summaries.reduce((sum, pool) => sum + pool.vaultTvlUsd, 0);
-    const avgApy7d =
+    const avgApy30d =
       summaries.length > 0
-        ? summaries.reduce((sum, pool) => sum + pool.apy7d, 0) / summaries.length
+        ? summaries.reduce((sum, pool) => sum + pool.apy30d, 0) / summaries.length
         : 0;
     const aiManagedPools = summaries.filter((pool) => pool.decisionSource === "groq-agent").length;
     const recentExecuted = history.filter((entry) => entry.status === "executed").length;
 
     return {
       totalVaultTvl,
-      avgApy7d,
+      avgApy30d,
       aiManagedPools,
       recentExecuted,
     };
@@ -103,8 +107,8 @@ export default function KeeperPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Average 7D APY</CardDescription>
-              <CardTitle className="text-2xl">{formatPercent(stats.avgApy7d)}</CardTitle>
+              <CardDescription>Average 30D APY</CardDescription>
+              <CardTitle className="text-2xl">{formatPercent(stats.avgApy30d)}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
@@ -158,21 +162,31 @@ export default function KeeperPage() {
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">{shortAddress(pool.address)}</p>
                       </div>
-                      <Badge variant="outline" className={regimeClass(pool.volatilityRegime)}>
-                        <Waves className="h-3 w-3" />
-                        {pool.volatilityRegime}
-                      </Badge>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {pool.state === "Completed" && (
+                          <>
+                            <Badge
+                              variant="outline"
+                              className="border-slate-500/30 bg-slate-500/10 text-slate-400"
+                            >
+                              Completed
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className="border-slate-500/30 bg-slate-500/10 text-slate-400"
+                            >
+                              Monitoring Off
+                            </Badge>
+                          </>
+                        )}
+                        <Badge variant="outline" className={regimeClass(pool.volatilityRegime)}>
+                          <Waves className="h-3 w-3" />
+                          {pool.volatilityRegime}
+                        </Badge>
+                      </div>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          7D APY
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-foreground">
-                          {formatPercent(pool.apy7d)}
-                        </p>
-                      </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                           30D APY
@@ -200,7 +214,9 @@ export default function KeeperPage() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge variant={actionVariant(pool.nextAction)}>{pool.nextAction}</Badge>
+                      <Badge variant={actionVariant(pool.nextAction)}>
+                        {pool.state === "Completed" ? "monitoring_off" : pool.nextAction}
+                      </Badge>
                       <Badge variant="outline">{pool.decisionSource}</Badge>
                     </div>
                   </div>
@@ -284,9 +300,15 @@ export default function KeeperPage() {
                       </TableCell>
                       <TableCell className="align-top">
                         {entry.txHash ? (
-                          <span className="font-mono text-xs text-foreground">
+                          <a
+                            href={getHashScanTxUrl(entry.txHash)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-xs text-foreground underline-offset-4 hover:underline"
+                          >
                             {shortAddress(entry.txHash)}
-                          </span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
                         ) : (
                           <span className="text-xs text-muted-foreground">No tx</span>
                         )}

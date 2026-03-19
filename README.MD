@@ -302,6 +302,27 @@ This flow combines community finance, DeFi yield infrastructure, and intelligent
 - RPC used for live reads and writes
 - ecosystem integration story is explicit, not bolted on
 
+## Hedera Testnet Deployment
+
+### Contract addresses
+
+| Component | Address |
+| --- | --- |
+| USDC | `0x0000000000000000000000000000000000001549` |
+| Bonzo Vault | `0x5886EBcBfB04d417cFb9e5711979140e44C28B11` |
+| Deposit Guard | `0xB9AfFf6F6f146DeBe0768e8082524A4600fDC1B9` |
+| SancaPool Implementation | `0xE521D3c0D2610c7c753aD7a12e45A9AF627Ac83C` |
+| SancaFactory | `0x08a74CB8D0B398d9d6add0992085E488321Ef686` |
+
+### Service operator addresses
+
+| Service | Address |
+| --- | --- |
+| Keeper | `0xC3BF4C8B5A9bb1E68E9E5B26167c76a311DCe488` |
+| Settler | `0x964559C7f52382Fd8295023111e2A5d22e598612` |
+
+These addresses represent the current testnet deployment used by the Sanca frontend, keeper flow, and cycle settlement flow.
+
 ## Local Setup
 
 ### Prerequisites

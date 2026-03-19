@@ -129,6 +129,7 @@ export default function ActiveCirclesSection() {
               <div className="mb-4">
                 <KeeperPoolMetrics
                   apy30d={pool.keeperApy30d}
+                  poolState={pool.state}
                   nextAction={pool.keeperNextAction}
                   volatilityRegime={pool.keeperVolatilityRegime}
                   decisionSource={pool.keeperDecisionSource}
