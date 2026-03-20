@@ -1,10 +1,19 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Plus, Search, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { CreateCircleDialog } from "@/components/circles/create-circle-dialog"
 import { KeeperPoolMetrics } from "@/components/circles/keeper-pool-metrics"
 import { usePools } from "@/hooks/usePools"
@@ -13,11 +22,29 @@ import { useAccount } from "wagmi"
 import { formatDistanceToNow } from "date-fns"
 
 type FilterStatus = "all" | "Open" | "Active" | "Completed"
+const CIRCLES_PAGE_SIZE = 6
+
+function getVisiblePages(currentPage: number, totalPages: number): Array<number | "ellipsis"> {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, "ellipsis", totalPages]
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, "ellipsis", totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages]
+}
 
 export default function CirclesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const { address } = useAccount()
 
   // Fetch pools from the indexed API snapshot
@@ -34,6 +61,22 @@ export default function CirclesPage() {
       return matchesSearch
     })
   }, [pools, searchQuery])
+
+  const totalPages = Math.max(1, Math.ceil(filteredCircles.length / CIRCLES_PAGE_SIZE))
+  const paginatedCircles = useMemo(() => {
+    const startIndex = (currentPage - 1) * CIRCLES_PAGE_SIZE
+    return filteredCircles.slice(startIndex, startIndex + CIRCLES_PAGE_SIZE)
+  }, [currentPage, filteredCircles])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, filterStatus, pools])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   // Helper untuk format USDC amount (6 decimals)
   const formatUSDC = (amount: bigint) => {
@@ -121,7 +164,7 @@ export default function CirclesPage() {
         {!isLoading && !error && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCircles.map((pool) => {
+              {paginatedCircles.map((pool) => {
                 const progress = getProgress(pool)
                 const userStatus = getUserStatus(pool)
                 const createdDate = new Date(Number(pool.createdAtTimestamp) * 1000)
@@ -210,6 +253,53 @@ export default function CirclesPage() {
                 )
               })}
             </div>
+
+            {filteredCircles.length > CIRCLES_PAGE_SIZE && (
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setCurrentPage((page) => Math.max(1, page - 1))
+                      }}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                  {getVisiblePages(currentPage, totalPages).map((item, index) =>
+                    item === "ellipsis" ? (
+                      <PaginationItem key={`circles-ellipsis-${index}`}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    ) : (
+                      <PaginationItem key={`circles-page-${item}`}>
+                        <PaginationLink
+                          href="#"
+                          isActive={currentPage === item}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            setCurrentPage(item)
+                          }}
+                        >
+                          {item}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ),
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setCurrentPage((page) => Math.min(totalPages, page + 1))
+                      }}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
 
             {filteredCircles.length === 0 && (
               <div className="text-center py-12">

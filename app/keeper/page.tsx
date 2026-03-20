@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit, ExternalLink, Loader2, Sparkles, Waves } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -14,6 +14,15 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,6 +32,24 @@ import {
 } from "@/components/ui/table";
 import { useKeeperDecisionHistory, useKeeperPoolSummaries } from "@/hooks/useKeeper";
 import { usePools } from "@/hooks/usePools";
+
+const HISTORY_PAGE_SIZE = 6;
+
+function getVisiblePages(currentPage: number, totalPages: number): Array<number | "ellipsis"> {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, "ellipsis", totalPages];
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, "ellipsis", totalPages - 2, totalPages - 1, totalPages];
+  }
+
+  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
+}
 
 function formatUsd(value: number): string {
   return `$${value.toFixed(2)}`;
@@ -61,6 +88,7 @@ function regimeClass(regime?: string | null): string {
 }
 
 export default function KeeperPage() {
+  const [historyPage, setHistoryPage] = useState(1);
   const { data: poolSummaries, isLoading: summariesLoading, error: summariesError } =
     useKeeperPoolSummaries();
   const { data: historyEntries, isLoading: historyLoading, error: historyError } =
@@ -102,6 +130,22 @@ export default function KeeperPage() {
 
     return chunks;
   }, [poolSummaries]);
+  const totalHistoryPages = Math.max(1, Math.ceil((historyEntries?.length ?? 0) / HISTORY_PAGE_SIZE));
+  const paginatedHistoryEntries = useMemo(() => {
+    const items = historyEntries ?? [];
+    const startIndex = (historyPage - 1) * HISTORY_PAGE_SIZE;
+    return items.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
+  }, [historyEntries, historyPage]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historyEntries]);
+
+  useEffect(() => {
+    if (historyPage > totalHistoryPages) {
+      setHistoryPage(totalHistoryPages);
+    }
+  }, [historyPage, totalHistoryPages]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -279,77 +323,125 @@ export default function KeeperPage() {
                 No keeper decisions have been recorded yet. Run the keeper to populate history.
               </p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Pool</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Signal</TableHead>
-                    <TableHead>Reasoning</TableHead>
-                    <TableHead>Tx</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {historyEntries.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="align-top text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">
-                            {poolNameMap.get(entry.pool.toLowerCase()) || shortAddress(entry.pool)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{shortAddress(entry.pool)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <Badge variant={actionVariant(entry.action)}>{entry.action}</Badge>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <Badge variant="outline" className={statusClass(entry.status)}>
-                          {entry.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <div className="flex flex-col gap-2">
-                          <Badge variant="outline" className={regimeClass(entry.regime)}>
-                            {entry.regime || "n/a"}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{entry.decisionSource}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-sm whitespace-normal align-top">
-                        <div className="space-y-1">
-                          {entry.reasoning.map((line, index) => (
-                            <p key={`${entry.id}-${index}`} className="text-xs text-muted-foreground">
-                              {line}
-                            </p>
-                          ))}
-                          {entry.error && <p className="text-xs text-destructive">{entry.error}</p>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        {entry.txHash ? (
-                          <a
-                            href={getHashScanTxUrl(entry.txHash)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 font-mono text-xs text-foreground underline-offset-4 hover:underline"
-                          >
-                            {shortAddress(entry.txHash)}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No tx</span>
-                        )}
-                      </TableCell>
+              <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Pool</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Signal</TableHead>
+                      <TableHead>Reasoning</TableHead>
+                      <TableHead>Tx</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedHistoryEntries.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell className="align-top text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">
+                              {poolNameMap.get(entry.pool.toLowerCase()) || shortAddress(entry.pool)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{shortAddress(entry.pool)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <Badge variant={actionVariant(entry.action)}>{entry.action}</Badge>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <Badge variant="outline" className={statusClass(entry.status)}>
+                            {entry.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <div className="flex flex-col gap-2">
+                            <Badge variant="outline" className={regimeClass(entry.regime)}>
+                              {entry.regime || "n/a"}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{entry.decisionSource}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-sm whitespace-normal align-top">
+                          <div className="space-y-1">
+                            {entry.reasoning.map((line, index) => (
+                              <p key={`${entry.id}-${index}`} className="text-xs text-muted-foreground">
+                                {line}
+                              </p>
+                            ))}
+                            {entry.error && <p className="text-xs text-destructive">{entry.error}</p>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          {entry.txHash ? (
+                            <a
+                              href={getHashScanTxUrl(entry.txHash)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 font-mono text-xs text-foreground underline-offset-4 hover:underline"
+                            >
+                              {shortAddress(entry.txHash)}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No tx</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {historyEntries.length > HISTORY_PAGE_SIZE && (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setHistoryPage((page) => Math.max(1, page - 1));
+                          }}
+                          className={historyPage === 1 ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+                      {getVisiblePages(historyPage, totalHistoryPages).map((item, index) =>
+                        item === "ellipsis" ? (
+                          <PaginationItem key={`history-ellipsis-${index}`}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        ) : (
+                          <PaginationItem key={`history-page-${item}`}>
+                            <PaginationLink
+                              href="#"
+                              isActive={historyPage === item}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setHistoryPage(item);
+                              }}
+                            >
+                              {item}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ),
+                      )}
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setHistoryPage((page) => Math.min(totalHistoryPages, page + 1));
+                          }}
+                          className={historyPage === totalHistoryPages ? "pointer-events-none opacity-50" : ""}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
