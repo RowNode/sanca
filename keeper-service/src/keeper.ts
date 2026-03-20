@@ -2,6 +2,7 @@ import { buildKeeperContext, getAllPools } from "./context.js";
 import { buildDecisionForContext } from "./decision-agent.js";
 import { canExecuteTransactions, executeKeeperAction, isLikelyRevert } from "./execution.js";
 import { recordDecision } from "./history.js";
+import { config, hasDecisionAgentConfig } from "./config.js";
 import type { HexAddress, KeeperContext, KeeperDecision, KeeperRunSummary } from "./types.js";
 
 export async function buildDecisionForPool(
@@ -10,6 +11,68 @@ export async function buildDecisionForPool(
   const context = await buildKeeperContext(poolAddress);
   const decision = await buildDecisionForContext(context);
   return { context, decision };
+}
+
+async function executeDecisionWithRetries(
+  pool: HexAddress,
+  context: KeeperContext,
+  initialDecision: KeeperDecision,
+): Promise<{
+  decision: KeeperDecision;
+  txHash: HexAddress | null;
+  executionProvider: "viem" | null;
+  status: "executed" | "skipped";
+}> {
+  let decision = initialDecision;
+  let repairAttempt = 0;
+
+  while (true) {
+    if (decision.action === "noop") {
+      return {
+        decision,
+        txHash: null,
+        executionProvider: null,
+        status: "skipped",
+      };
+    }
+
+    try {
+      const result = await executeKeeperAction({
+        poolAddress: pool,
+        decision: decision.action,
+        params: decision.params,
+      });
+
+      return {
+        decision: {
+          ...decision,
+          params: result.appliedParams,
+        },
+        txHash: result.txHash,
+        executionProvider: result.executionProvider,
+        status: "executed",
+      };
+    } catch (err) {
+      const error = err as { shortMessage?: string; message?: string };
+      const message = error?.shortMessage || error?.message || String(err);
+      const canRepair =
+        decision.action === "rebalance" &&
+        hasDecisionAgentConfig() &&
+        repairAttempt < config.rebalanceRepairAttempts;
+
+      if (!canRepair) {
+        throw err;
+      }
+
+      repairAttempt += 1;
+      decision = await buildDecisionForContext(context, {
+        previousDecision: decision,
+        failureReason: message,
+        repairAttempt,
+        fallbackToBaseline: false,
+      });
+    }
+  }
 }
 
 export async function runKeeper(): Promise<KeeperRunSummary> {
@@ -38,46 +101,47 @@ export async function runKeeper(): Promise<KeeperRunSummary> {
       const decision = await buildDecisionForContext(context);
       latestDecision = decision;
 
-      if (decision.action === "noop") {
+      const executionResult = await executeDecisionWithRetries(pool, context, decision);
+      latestDecision = executionResult.decision;
+
+      if (executionResult.status === "skipped") {
         noops += 1;
         recordDecision({
           pool,
-          action: "noop",
+          action: executionResult.decision.action,
           status: "skipped",
           txHash: null,
           executionProvider: null,
-          reasoning: decision.reasoning,
-          params: null,
+          reasoning: executionResult.decision.reasoning,
+          params: executionResult.decision.params,
           regime: context.market.volatilityRegime,
-          decisionSource: decision.source,
+          decisionSource: executionResult.decision.source,
         });
         continue;
       }
 
-      const { txHash, executionProvider } = await executeKeeperAction({
-        poolAddress: pool,
-        decision: decision.action,
-        params: decision.params,
-      });
-
-      if (decision.action === "collectFees") {
+      if (executionResult.decision.action === "collectFees") {
         feesCollected += 1;
-        console.log(`[Keeper] Collected fees pool ${pool} tx=${txHash} via=${executionProvider}`);
+        console.log(
+          `[Keeper] Collected fees pool ${pool} tx=${executionResult.txHash} via=${executionResult.executionProvider}`,
+        );
       } else {
         rebalanced += 1;
-        console.log(`[Keeper] Rebalanced pool ${pool} tx=${txHash} via=${executionProvider}`);
+        console.log(
+          `[Keeper] Rebalanced pool ${pool} tx=${executionResult.txHash} via=${executionResult.executionProvider}`,
+        );
       }
 
       recordDecision({
         pool,
-        action: decision.action,
+        action: executionResult.decision.action,
         status: "executed",
-        txHash,
-        executionProvider,
-        reasoning: decision.reasoning,
-        params: decision.params,
+        txHash: executionResult.txHash,
+        executionProvider: executionResult.executionProvider,
+        reasoning: executionResult.decision.reasoning,
+        params: executionResult.decision.params,
         regime: context.market.volatilityRegime,
-        decisionSource: decision.source,
+        decisionSource: executionResult.decision.source,
       });
     } catch (err) {
       const error = err as { shortMessage?: string; message?: string };
@@ -108,3 +172,4 @@ export async function runKeeper(): Promise<KeeperRunSummary> {
 
   return { poolsChecked: pools.length, rebalanced, feesCollected, noops };
 }
+

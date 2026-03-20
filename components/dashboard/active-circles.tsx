@@ -2,13 +2,27 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Users, CheckCircle2, Clock, Loader2 } from "lucide-react"
+import { ArrowRight, Users, CheckCircle2, Loader2 } from "lucide-react"
 import { useUserPools } from "@/hooks/usePools"
 import { formatDistanceToNow } from "date-fns"
 import { KeeperPoolMetrics } from "@/components/circles/keeper-pool-metrics"
 
 export default function ActiveCirclesSection() {
   const { data: userPools, isLoading } = useUserPools()
+  const prioritizedPools = [...(userPools ?? [])]
+    .sort((a, b) => {
+      const statePriority = (state: "Open" | "Active" | "Completed") => {
+        if (state === "Active") return 0
+        if (state === "Completed") return 1
+        return 2
+      }
+
+      const priorityDiff = statePriority(a.state) - statePriority(b.state)
+      if (priorityDiff !== 0) return priorityDiff
+
+      return Number(b.userJoinedAt - a.userJoinedAt)
+    })
+    .slice(0, 2)
 
   // Helper untuk format USDC amount (6 decimals)
   const formatUSDC = (amount: bigint) => {
@@ -25,7 +39,7 @@ export default function ActiveCirclesSection() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Active Circles</h2>
+          <h2 className="text-2xl font-bold text-foreground">Joined Circles</h2>
         </div>
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -39,7 +53,7 @@ export default function ActiveCirclesSection() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Active Circles</h2>
+          <h2 className="text-2xl font-bold text-foreground">Joined Circles</h2>
           <Link href="/circles">
             <Button variant="outline" size="sm" className="gap-1 bg-transparent">
               View All
@@ -56,7 +70,7 @@ export default function ActiveCirclesSection() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Active Circles</h2>
+        <h2 className="text-2xl font-bold text-foreground">Joined Circles</h2>
         <Link href="/circles">
           <Button variant="outline" size="sm" className="gap-1 bg-transparent">
             View All
@@ -66,7 +80,7 @@ export default function ActiveCirclesSection() {
       </div>
 
       <div className="flex flex-col gap-3">
-        {userPools.map((pool) => {
+        {prioritizedPools.map((pool) => {
           const progress = getProgress(pool)
           const joinedDate = new Date(Number(pool.userJoinedAt) * 1000)
 

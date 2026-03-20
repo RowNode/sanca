@@ -7,6 +7,13 @@ import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import {
   Table,
   TableBody,
   TableCell,
@@ -85,6 +92,16 @@ export default function KeeperPage() {
   }, [historyEntries, poolSummaries]);
 
   const isLoading = summariesLoading || historyLoading;
+  const poolSummarySlides = useMemo(() => {
+    const summaries = poolSummaries ?? [];
+    const chunks = [];
+
+    for (let index = 0; index < summaries.length; index += 3) {
+      chunks.push(summaries.slice(index, index + 3));
+    }
+
+    return chunks;
+  }, [poolSummaries]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -149,79 +166,95 @@ export default function KeeperPage() {
             ) : !poolSummaries?.length ? (
               <p className="text-sm text-muted-foreground">No keeper pool summaries available yet.</p>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {poolSummaries.map((pool) => (
-                  <div
-                    key={pool.address}
-                    className="rounded-xl border border-border bg-card/40 p-4 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">
-                          {poolNameMap.get(pool.address.toLowerCase()) || shortAddress(pool.address)}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">{shortAddress(pool.address)}</p>
-                      </div>
-                      <div className="flex flex-wrap justify-end gap-2">
-                        {pool.state === "Completed" && (
-                          <>
-                            <Badge
-                              variant="outline"
-                              className="border-slate-500/30 bg-slate-500/10 text-slate-400"
-                            >
-                              Completed
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className="border-slate-500/30 bg-slate-500/10 text-slate-400"
-                            >
-                              Monitoring Off
-                            </Badge>
-                          </>
-                        )}
-                        <Badge variant="outline" className={regimeClass(pool.volatilityRegime)}>
-                          <Waves className="h-3 w-3" />
-                          {pool.volatilityRegime}
-                        </Badge>
-                      </div>
-                    </div>
+              <Carousel opts={{ align: "start", loop: poolSummarySlides.length > 1 }} className="w-full">
+                <CarouselContent>
+                  {poolSummarySlides.map((slide, slideIndex) => (
+                    <CarouselItem key={`slide-${slideIndex}`}>
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {slide.map((pool) => (
+                          <div
+                            key={pool.address}
+                            className="rounded-xl border border-border bg-card/40 p-4 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">
+                                  {poolNameMap.get(pool.address.toLowerCase()) || shortAddress(pool.address)}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {shortAddress(pool.address)}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap justify-end gap-2">
+                                {pool.state === "Completed" && (
+                                  <>
+                                    <Badge
+                                      variant="outline"
+                                      className="border-slate-500/30 bg-slate-500/10 text-slate-400"
+                                    >
+                                      Completed
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className="border-slate-500/30 bg-slate-500/10 text-slate-400"
+                                    >
+                                      Monitoring Off
+                                    </Badge>
+                                  </>
+                                )}
+                                <Badge variant="outline" className={regimeClass(pool.volatilityRegime)}>
+                                  <Waves className="h-3 w-3" />
+                                  {pool.volatilityRegime}
+                                </Badge>
+                              </div>
+                            </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          30D APY
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-foreground">
-                          {formatPercent(pool.apy30d)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          Yield
-                        </p>
-                        <p className="mt-1 text-sm font-medium text-foreground">
-                          {formatUsd(pool.accumulatedYieldUsd)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          Vault TVL
-                        </p>
-                        <p className="mt-1 text-sm font-medium text-foreground">
-                          {formatUsd(pool.vaultTvlUsd)}
-                        </p>
-                      </div>
-                    </div>
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                                  30D APY
+                                </p>
+                                <p className="mt-1 text-lg font-semibold text-foreground">
+                                  {formatPercent(pool.apy30d)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                                  Yield
+                                </p>
+                                <p className="mt-1 text-sm font-medium text-foreground">
+                                  {formatUsd(pool.accumulatedYieldUsd)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                                  Vault TVL
+                                </p>
+                                <p className="mt-1 text-sm font-medium text-foreground">
+                                  {formatUsd(pool.vaultTvlUsd)}
+                                </p>
+                              </div>
+                            </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge variant={actionVariant(pool.nextAction)}>
-                        {pool.state === "Completed" ? "monitoring_off" : pool.nextAction}
-                      </Badge>
-                      <Badge variant="outline">{pool.decisionSource}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <Badge variant={actionVariant(pool.nextAction)}>
+                                {pool.state === "Completed" ? "monitoring_off" : pool.nextAction}
+                              </Badge>
+                              <Badge variant="outline">{pool.decisionSource}</Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {poolSummarySlides.length > 1 && (
+                  <>
+                    <CarouselPrevious className="-left-4" />
+                    <CarouselNext className="-right-4" />
+                  </>
+                )}
+              </Carousel>
             )}
           </CardContent>
         </Card>

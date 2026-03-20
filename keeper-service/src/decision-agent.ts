@@ -20,6 +20,13 @@ interface DecisionAgentRuntime {
 
 let decisionAgentRuntimePromise: Promise<DecisionAgentRuntime | null> | null = null;
 
+interface DecisionPromptFeedback {
+  previousDecision?: KeeperDecision;
+  failureReason?: string;
+  repairAttempt?: number;
+  fallbackToBaseline?: boolean;
+}
+
 function alignTick(value: number): number {
   return Math.round(value / config.tickSpacing) * config.tickSpacing;
 }
@@ -144,6 +151,14 @@ async function getDecisionAgentRuntime(): Promise<DecisionAgentRuntime | null> {
           "You are Sanca's volatility-aware keeper decision agent.",
           "You analyze HBAR/USDC vault context and decide one action only: rebalance, collectFees, or noop.",
           "Do not execute transactions.",
+          "If action is rebalance, your params must obey all hard constraints.",
+          "Hard constraints for rebalance params:",
+          "- baseLower < baseUpper",
+          "- limitLower < limitUpper",
+          "- limitLower < baseLower < baseUpper < limitUpper",
+          "- every range bound must be an integer aligned to tickSpacing",
+          '- swapQuantity must be an integer string like "0" or "-1000000"',
+          "If you receive a previous failure reason, fix the proposal instead of repeating the same invalid range.",
           "Return strict JSON only with this shape:",
           '{"action":"rebalance|collectFees|noop","reasoning":["..."],"params":{"baseLower":-120,"baseUpper":120,"limitLower":-360,"limitUpper":360,"swapQuantity":"0"}|null}',
         ].join(" "),
@@ -225,12 +240,12 @@ function responseToText(response: { messages?: Array<{ content?: unknown }> }): 
   return String(content ?? "");
 }
 
-export async function buildDecisionForContext(context: KeeperContext): Promise<KeeperDecision> {
-  const baselineDecision = buildBaselineDecision(context);
-  const runtime = await getDecisionAgentRuntime();
-  if (!runtime) return baselineDecision;
-
-  const prompt = [
+function buildDecisionPrompt(
+  context: KeeperContext,
+  baselineDecision: KeeperDecision,
+  feedback?: DecisionPromptFeedback,
+): string {
+  const sections = [
     "Analyze this keeper context and return JSON only.",
     `Context: ${stringifyForPrompt(context)}`,
     `Baseline recommendation: ${stringifyForPrompt(baselineDecision)}`,
@@ -238,7 +253,38 @@ export async function buildDecisionForContext(context: KeeperContext): Promise<K
     "- action must be one of rebalance, collectFees, noop",
     "- use null params unless action is rebalance",
     "- keep reasoning concise",
-  ].join("\n");
+    `- tickSpacing is ${config.tickSpacing}`,
+    "- for rebalance params: baseLower < baseUpper",
+    "- for rebalance params: limitLower < limitUpper",
+    "- for rebalance params: limitLower < baseLower < baseUpper < limitUpper",
+    "- all range bounds must already be aligned to tickSpacing",
+    '- swapQuantity must be an integer string',
+  ];
+
+  if (feedback?.previousDecision) {
+    sections.push(`Previous proposal: ${stringifyForPrompt(feedback.previousDecision)}`);
+  }
+
+  if (feedback?.failureReason) {
+    sections.push(`Previous proposal failed with reason: ${feedback.failureReason}`);
+  }
+
+  if (feedback?.repairAttempt) {
+    sections.push(`This is repair attempt #${feedback.repairAttempt}. Return a corrected proposal.`);
+  }
+
+  return sections.join("\n");
+}
+
+export async function buildDecisionForContext(
+  context: KeeperContext,
+  feedback?: DecisionPromptFeedback,
+): Promise<KeeperDecision> {
+  const baselineDecision = buildBaselineDecision(context);
+  const runtime = await getDecisionAgentRuntime();
+  if (!runtime) return baselineDecision;
+
+  const prompt = buildDecisionPrompt(context, baselineDecision, feedback);
 
   try {
     const response = await runtime.agent.invoke(
@@ -253,9 +299,17 @@ export async function buildDecisionForContext(context: KeeperContext): Promise<K
     );
 
     const payload = extractJsonBlock(responseToText(response));
-    if (!payload) return baselineDecision;
+    if (!payload) {
+      if (feedback?.fallbackToBaseline === false) {
+        throw new Error("Decision repair failed: model did not return a valid JSON payload");
+      }
+      return baselineDecision;
+    }
     return normalizeDecisionPayload(payload, baselineDecision);
   } catch (_error) {
+    if (feedback?.fallbackToBaseline === false) {
+      throw _error;
+    }
     return baselineDecision;
   }
 }

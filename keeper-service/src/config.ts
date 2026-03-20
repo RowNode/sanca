@@ -69,6 +69,7 @@ export const config = {
   spotPriceBase: parseFloatValue(process.env.KEEPER_SPOT_PRICE_BASE, 0.081),
   feeCollectionThreshold: BigInt(process.env.KEEPER_FEE_COLLECTION_THRESHOLD || "5000000"),
   tickSpacing: parseInteger(process.env.KEEPER_TICK_SPACING, 60),
+  rebalanceRepairAttempts: parseInteger(process.env.KEEPER_REBALANCE_RETRY_ATTEMPTS, 3),
   volatilityThresholds,
   regimeProfiles,
 } as const;

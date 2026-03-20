@@ -138,6 +138,7 @@ export interface ExecuteKeeperActionInput {
 export interface ExecuteKeeperActionResult {
   txHash: HexAddress;
   executionProvider: "viem";
+  appliedParams: RebalanceParams | null;
 }
 
 export interface KeeperRunSummary {
