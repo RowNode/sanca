@@ -17,6 +17,10 @@ const parseFloatValue = (value: string | undefined, fallback: number): number =>
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const parseStrategyMode = (value: string | undefined): "normal" | "demo" => {
+  return value === "demo" ? "demo" : "normal";
+};
+
 export const HEDERA_TESTNET = {
   id: 296,
   name: "Hedera Testnet",
@@ -52,6 +56,10 @@ const regimeProfiles: Record<"low" | "medium" | "high" | "extreme", RegimeProfil
   extreme: { baseHalfWidth: 300, limitHalfWidth: 900 },
 };
 
+const strategyMode = parseStrategyMode(process.env.KEEPER_STRATEGY_MODE);
+const defaultFeeCollectionThreshold = strategyMode === "demo" ? "1000000" : "5000000";
+const defaultDriftRebalanceThreshold = strategyMode === "demo" ? 0.35 : 0.7;
+
 export const config = {
   accountId: process.env.ACCOUNT_ID || "",
   privateKey: process.env.PRIVATE_KEY || "",
@@ -65,10 +73,17 @@ export const config = {
   pairLabel: process.env.KEEPER_PAIR || "HBAR/USDC",
   saucerswapPoolAddress: (process.env.SAUCERSWAP_POOL_ADDRESS ||
     DEFAULT_SAUCERSWAP_POOL_ADDRESS) as HexAddress,
+  strategyMode,
   mockApy: parseFloatValue(process.env.KEEPER_MOCK_APY, 29),
   spotPriceBase: parseFloatValue(process.env.KEEPER_SPOT_PRICE_BASE, 0.081),
-  feeCollectionThreshold: BigInt(process.env.KEEPER_FEE_COLLECTION_THRESHOLD || "5000000"),
+  feeCollectionThreshold: BigInt(
+    process.env.KEEPER_FEE_COLLECTION_THRESHOLD || defaultFeeCollectionThreshold,
+  ),
   tickSpacing: parseInteger(process.env.KEEPER_TICK_SPACING, 60),
+  driftRebalanceThreshold: parseFloatValue(
+    process.env.KEEPER_DRIFT_REBALANCE_THRESHOLD,
+    defaultDriftRebalanceThreshold,
+  ),
   rebalanceRepairAttempts: parseInteger(process.env.KEEPER_REBALANCE_RETRY_ATTEMPTS, 3),
   volatilityThresholds,
   regimeProfiles,

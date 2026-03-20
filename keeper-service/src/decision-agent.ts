@@ -62,7 +62,7 @@ export function buildBaselineDecision(context: KeeperContext): KeeperDecision {
     return {
       action: "collectFees",
       reasoning: [
-        "Pending fees crossed the configured collection threshold.",
+        `Pending fees crossed the configured collection threshold for ${config.strategyMode} mode.`,
         "Collecting fees before the next rebalance keeps vault accounting cleaner.",
       ],
       params: null,
@@ -85,7 +85,7 @@ export function buildBaselineDecision(context: KeeperContext): KeeperDecision {
     context.vault.limitLower !== targetRange.limitLower ||
     context.vault.limitUpper !== targetRange.limitUpper;
 
-  if (outOfRange || rangeMismatch || driftRatio >= 0.7) {
+  if (outOfRange || rangeMismatch || driftRatio >= config.driftRebalanceThreshold) {
     return {
       action: "rebalance",
       reasoning: [
@@ -93,7 +93,7 @@ export function buildBaselineDecision(context: KeeperContext): KeeperDecision {
         outOfRange
           ? "Current tick moved outside the active base range."
           : "Current range no longer matches the target profile for this regime.",
-        `Drift ratio is ${driftRatio.toFixed(2)}, so centering liquidity is justified.`,
+        `Drift ratio is ${driftRatio.toFixed(2)} and threshold is ${config.driftRebalanceThreshold.toFixed(2)}, so centering liquidity is justified.`,
       ],
       params: {
         ...targetRange,
@@ -151,6 +151,10 @@ async function getDecisionAgentRuntime(): Promise<DecisionAgentRuntime | null> {
           "You are Sanca's volatility-aware keeper decision agent.",
           "You analyze HBAR/USDC vault context and decide one action only: rebalance, collectFees, or noop.",
           "Do not execute transactions.",
+          `Current keeper strategy mode is ${config.strategyMode}.`,
+          config.strategyMode === "demo"
+            ? "In demo mode, prefer a safe action over noop when there is meaningful but non-trivial drift or fee collection opportunity."
+            : "In normal mode, be conservative and prefer noop unless action is clearly justified.",
           "If action is rebalance, your params must obey all hard constraints.",
           "Hard constraints for rebalance params:",
           "- baseLower < baseUpper",
@@ -253,7 +257,10 @@ function buildDecisionPrompt(
     "- action must be one of rebalance, collectFees, noop",
     "- use null params unless action is rebalance",
     "- keep reasoning concise",
+    `- current strategy mode is ${config.strategyMode}`,
     `- tickSpacing is ${config.tickSpacing}`,
+    `- rebalance when driftRatio is meaningfully above ${config.driftRebalanceThreshold.toFixed(2)} or range is mismatched`,
+    `- collect fees when pendingFeeAssets is at or above ${config.feeCollectionThreshold.toString()}`,
     "- for rebalance params: baseLower < baseUpper",
     "- for rebalance params: limitLower < limitUpper",
     "- for rebalance params: limitLower < baseLower < baseUpper < limitUpper",

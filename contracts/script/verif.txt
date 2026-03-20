@@ -170,7 +170,7 @@ cast call $FACTORY "depositGuard()(address)" --rpc-url testnet
 # periodDuration = 300 detik (5 menit)
 # yieldBonusSplit = 50 (% yield ke pemenang)
 cast send $FACTORY "createPool(uint8,uint256,uint256,uint8,string,string)" \
-  2 5000000 300 50 "Sanca 2 Orang 5 USDC" "Pool demo 2 orang 5 USDC, 5 menit" \
+  2 5000000 300 50 "Testing Pool" "Pool For 2 Member 5 Minutes" \
   --rpc-url testnet --private-key $PRIVATE_KEY_SETTLER
 
 # 2) Ambil alamat pool baru (index terakhir = count - 1)
