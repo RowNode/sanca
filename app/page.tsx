@@ -142,17 +142,18 @@ export default function LandingPage() {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-card">
                   <div className="w-2 h-2 bg-accent rounded-full"></div>
                   <span className="text-xs font-medium text-muted-foreground">
-                    Web3 Savings Revolution
+                    AI-Managed DeFi ROSCA on Hedera
                   </span>
                 </div>
                 <h1 className="text-5xl sm:text-6xl font-bold text-foreground leading-tight">
                   Save Together,
                   <br />
-                  <span className="text-accent">Win Together</span>
+                  <span className="text-accent">Earn Together</span>
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-md">
-                  Join transparent savings pools on Hedera. Deposit full collateral once, contribute each period, and let
-                  on-chain randomness fairly decide who gets each periods payout.
+                  Join transparent community savings pools on Hedera. Sanca turns pooled
+                  collateral into productive on-chain capital with automated payouts and a
+                  Bonzo-style intelligent keeper.
                 </p>
               </div>
 
@@ -192,7 +193,7 @@ export default function LandingPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-xs text-muted-foreground">
-                        Pool Collateral (USDC)
+                        Productive Pool Capital
                       </p>
                       <p className="text-2xl font-mono font-bold text-foreground">
                         25,000 USDC
@@ -204,7 +205,7 @@ export default function LandingPage() {
                   </div>
                   <div className="pt-4 border-t border-border">
                   <p className="text-xs text-muted-foreground mb-2">
-                    Next Hedera PRNG Draw
+                    Next Cycle Settlement
                   </p>
                     <p className="text-sm font-semibold text-foreground">
                       In 3 days
@@ -228,7 +229,8 @@ export default function LandingPage() {
               How Sanca Works
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Deposit full collateral once, contribute each period, and let on-chain randomness decide the winner.
+              Create a savings circle, lock collateral, contribute per cycle, and let
+              Hedera-native automation coordinate payouts and vault management.
             </p>
           </div>
 
@@ -238,28 +240,28 @@ export default function LandingPage() {
                 step: 1,
                 title: "Create or Join a Pool",
                 description:
-                  "Spin up a new Sanca pool on Hedera or join an existing one with a fixed member cap and contribution size.",
+                  "Create a new Sanca circle on Hedera or join an existing one with fixed membership, contribution size, and payout cadence.",
                 icon: Users,
               },
               {
                 step: 2,
-                title: "Deposit Collateral",
+                title: "Lock Productive Collateral",
                 description:
-                  "When you join, you deposit your full future contributions in USDC as collateral in the pool.",
+                  "When you join, you deposit your full future contributions in USDC as collateral, and the pool routes that capital into a Bonzo-style yield path.",
                 icon: TrendingUp,
               },
               {
                 step: 3,
-                title: "Contribute Each Period",
+                title: "Contribute and Settle Each Cycle",
                 description:
-                  "Every period, members send a USDC contribution; the winner schedule, pre-shuffled using Hedera PRNG, determines who receives that period’s pot plus a yield bonus.",
+                  "Each cycle, members contribute USDC while Hedera PRNG determines a fair payout order and automated settlement advances the pool lifecycle.",
                 icon: Lock,
               },
               {
                 step: 4,
-                title: "Finish & Withdraw",
+                title: "Monitor Yield and Withdraw",
                 description:
-                  "After all cycles complete, you withdraw your remaining collateral back as USDC.",
+                  "The keeper surfaces APY, vault TVL, and next actions during the run; once all cycles complete, members withdraw remaining collateral in USDC.",
                 icon: CheckCircle2,
               },
             ].map((item) => {
@@ -299,7 +301,8 @@ export default function LandingPage() {
               Why Choose Sanca
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Built for on-chain transparency, fair randomness, and yield on sleeping capital.
+              Built for transparent savings coordination, fair randomness, productive capital,
+              and visible keeper intelligence.
             </p>
           </div>
 
@@ -309,7 +312,7 @@ export default function LandingPage() {
                 icon: Check,
                 title: "On-Chain Transparency",
                 description:
-                  "All pool actions live on Hedera. Track contributions, draws, and payouts directly on the explorer or in-app.",
+                  "Pool creation, contributions, settlement, and withdrawals live on Hedera and can be audited directly in-app or on explorer links.",
               },
               {
                 icon: InfinityIcon,
@@ -319,27 +322,27 @@ export default function LandingPage() {
               },
               {
                 icon: DollarSign,
-                title: "Yield on Collateral",
+                title: "Yield on Idle Capital",
                 description:
-                  "Your upfront USDC collateral is held by the pool smart contract and earns yield while the pool runs.",
+                  "Upfront USDC collateral does not sit dormant. Sanca routes it into a Bonzo-style vault flow while the circle is active.",
               },
               {
                 icon: LockKeyhole,
-                title: "Non-Custodial & Secure",
+                title: "Non-Custodial Execution",
                 description:
-                  "Smart contracts (SancaFactory, SancaPool) hold funds according to code, not a company.",
+                  "Smart contracts enforce pool rules and hold capital according to code, not a coordinator, company, or custodial backend.",
               },
               {
                 icon: ChartColumnBig,
-                title: "Configurable Pools",
+                title: "Intelligent Keeper Layer",
                 description:
-                  "Fine-tune max members, contribution size, period duration, and yield bonus split for each community.",
+                  "A volatility-aware keeper monitors vault context, surfaces 30D APY and TVL, and decides when to rebalance or collect fees.",
               },
               {
                 icon: Handshake,
                 title: "Community First",
                 description:
-                  "Designed for real-world ROSCA flows with upfront collateral, late payment liquidation, and clear withdrawal rules.",
+                  "Designed for real ROSCA behavior with upfront collateral, missed-payment liquidation, automated payouts, and clear withdrawal rules.",
               },
             ].map((benefit, idx) => {
               const Icon = benefit.icon;
@@ -411,7 +414,7 @@ export default function LandingPage() {
               Frequently Asked Questions
             </h2>
             <p className="text-lg text-muted-foreground">
-              Find answers to common questions about Sanca circles
+              Find answers to common questions about Sanca&apos;s savings circles and keeper flow
             </p>
           </div>
 
@@ -420,12 +423,12 @@ export default function LandingPage() {
               {
                 question: "What is a Sanca pool?",
                 answer:
-                  "A Sanca pool is an on-chain rotating savings group (ROSCA) deployed on Hedera. Members deposit their full future contributions in USDC upfront (as collateral), then contribute USDC each period into a pot that is paid out to one randomly selected member.",
+                  "A Sanca pool is an on-chain rotating savings group (ROSCA) deployed on Hedera. Members deposit their full future contributions in USDC upfront as collateral, contribute each cycle, and the pool coordinates fair payouts while the collateral remains productive.",
               },
               {
                 question: "How do I create a circle?",
                 answer:
-                  "Connect your wallet, click 'Create a Pool', and set the key parameters: max members, contribution per period, period duration, and yield bonus split. The SancaFactory contract deploys a new SancaPool for you; other members then join by depositing their full collateral.",
+                  "Connect your wallet, click 'Create Circle', and set the key parameters: max members, contribution per period, period duration, and yield bonus split. The SancaFactory contract deploys a new SancaPool, and members then join by depositing their full collateral.",
               },
               {
                 question: "Can I join multiple pools?",
@@ -440,7 +443,12 @@ export default function LandingPage() {
               {
                 question: "How are payouts scheduled?",
                 answer:
-                  "Each period has one payout. Once all members have contributed (or been liquidated), the pool settles the current cycle and uses the pre-shuffled winner order (derived from Hedera PRNG at pool start) to decide who receives that period’s USDC pot plus a share of the yield.",
+                  "Each cycle has one payout. Once all members have contributed or been liquidated, the pool settles the cycle and uses the pre-shuffled winner order derived from Hedera PRNG at pool start to decide who receives the USDC pot plus a share of the yield.",
+              },
+              {
+                question: "What does the keeper do?",
+                answer:
+                  "The keeper is Sanca's intelligent DeFi operations layer. It monitors vault state, volatility regime, and fee conditions, then decides whether to rebalance, collect fees, or do nothing. The frontend surfaces those decisions, APY, TVL, and transaction history.",
               },
               {
                 question: "Is my money secure?",
@@ -490,11 +498,11 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center space-y-8">
           <div className="space-y-4">
             <h2 className="text-4xl font-bold text-foreground">
-              Ready to Join?
+              Ready to Start?
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Start saving with your community today. Create a new circle or
-              join an existing one.
+              Create a community savings circle or join an existing one and let Sanca
+              coordinate productive capital on Hedera.
             </p>
           </div>
 
