@@ -17,6 +17,12 @@
 
 Sanca is not just a DeFi vault. It is an **AI-managed community finance protocol** built on Hedera.
 
+## Submission Links
+
+- `Web`: [https://sanca.space](https://sanca.space)
+- `Demo Video`: [Sanca Demo](https://drive.google.com/file/d/1SrHzDfdHLnHOUVXtnoxcQ3gJrHCzwSs0/view?usp=drive_link)
+- `Pitch Deck`: [Canva Pitch Deck](https://www.canva.com/design/DAHEanRwe6Y/GLwUWhTcYiTAkR50aakjRw/edit?utm_content=DAHEanRwe6Y&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
+
 ## One-Line Pitch
 
 Sanca transforms traditional savings circles into AI-managed DeFi infrastructure where community capital earns yield, payouts are automated, and vault risk is actively managed through an intelligent keeper.
